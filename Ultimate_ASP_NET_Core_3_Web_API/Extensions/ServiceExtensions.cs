@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Repository;
+using Ultimate_ASP_NET_Core_3_Web_API.Formatters;
 
 namespace Ultimate_ASP_NET_Core_3_Web_API.Extensions
 {
@@ -37,5 +38,7 @@ namespace Ultimate_ASP_NET_Core_3_Web_API.Extensions
         public static void ConfigureRepositoryManager(this IServiceCollection services) =>
                 services.AddScoped<IRepositoryManager, RepositoryManager>();
 
+        public static IMvcBuilder AddCustomCSVFormatter(this IMvcBuilder builder) =>
+                builder.AddMvcOptions(config => config.OutputFormatters.Add(new CsvOutputFormatter()));
     }
 }

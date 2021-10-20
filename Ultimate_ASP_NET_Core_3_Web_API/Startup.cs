@@ -39,7 +39,9 @@ namespace Ultimate_ASP_NET_Core_3_Web_API
             services.AddControllers(config =>
             {
                 config.RespectBrowserAcceptHeader = true;
-            }).AddXmlDataContractSerializerFormatters();
+                config.ReturnHttpNotAcceptable = true;
+            }).AddXmlDataContractSerializerFormatters()
+              .AddCustomCSVFormatter();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
