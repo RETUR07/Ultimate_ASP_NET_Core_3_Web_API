@@ -2,12 +2,15 @@
 using Contracts;
 using Entities.DataTransferObjects;
 using Entities.Models;
+using Entities.RequestFeatures;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Ultimate_ASP_NET_Core_3_Web_API.ActionFilters;
 using Ultimate_ASP_NET_Core_3_Web_API.ModelBinders;
 
 namespace Ultimate_ASP_NET_Core_3_Web_API.Controllers
@@ -28,17 +31,18 @@ namespace Ultimate_ASP_NET_Core_3_Web_API.Controllers
         }
 
         [HttpGet]
-        public IActionResult GetCompanies()
+        public async Task<IActionResult> GetCompanies([FromQuery] CompanyParameters companyParameters)
         {
-            var companies = _repository.Company.GetAllCompanies(trackChanges: false);
+            var companies = await _repository.Company.GetAllCompaniesAsync(companyParameters, trackChanges: false);
+            Response.Headers.Add("X-Pagination", JsonConvert.SerializeObject(companies.MetaData));
             var companiesDto = _mapper.Map<IEnumerable<CompanyDto>>(companies);
             return Ok(companiesDto);
         }
 
         [HttpGet("{id}", Name = "CompanyById")]
-        public IActionResult GetCompany(Guid id)
+        public async Task<IActionResult> GetCompany(Guid id)
         {
-            var company = _repository.Company.GetCompany(id, trackChanges: false);
+            var company = await _repository.Company.GetCompanyAsync(id, trackChanges: false);
             if (company == null)
             {
                 _logger.LogInfo($"Company with id: {id} doesn't exist in the database.");
@@ -51,30 +55,18 @@ namespace Ultimate_ASP_NET_Core_3_Web_API.Controllers
             }
         }
 
-        [HttpPost]
-        public IActionResult CreateCompany([FromBody] CompanyForCreationDto company)
-        {
-            if (company == null)
-            {
-                _logger.LogError("CompanyForCreationDto object sent from client is null.");
-                return BadRequest("CompanyForCreationDto object is null");
-            }
-            var companyEntity = _mapper.Map<Company>(company);
-            _repository.Company.CreateCompany(companyEntity);
-            _repository.Save();
-            var companyToReturn = _mapper.Map<CompanyDto>(companyEntity);
-            return CreatedAtRoute("CompanyById", new { id = companyToReturn.Id }, companyToReturn);
-        }
-
         [HttpGet("collection/({ids})", Name = "CompanyCollection")]
-        public IActionResult GetCompanyCollection([ModelBinder(BinderType = typeof(ArrayModelBinder))] IEnumerable<Guid> ids)
+        public async Task<IActionResult> GetCompanyCollection([ModelBinder(BinderType = typeof(ArrayModelBinder))]IEnumerable<Guid> ids)
+
         {
             if (ids == null)
             {
                 _logger.LogError("Parameter ids is null");
                 return BadRequest("Parameter ids is null");
             }
-            var companyEntities = _repository.Company.GetByIds(ids, trackChanges: false);
+
+            var companyEntities = await _repository.Company.GetByIdsAsync(ids, trackChanges: false);
+
             if (ids.Count() != companyEntities.Count())
             {
                 _logger.LogError("Some ids are not valid in a collection");
@@ -84,23 +76,65 @@ namespace Ultimate_ASP_NET_Core_3_Web_API.Controllers
             return Ok(companiesToReturn);
         }
 
+        [HttpPost]
+        public async Task<IActionResult> CreateCompany([FromBody]CompanyForCreationDto company)
+        { 
+            var companyEntity = _mapper.Map<Company>(company);
+            _repository.Company.CreateCompany(companyEntity);
+            await _repository.SaveAsync();
+            var companyToReturn = _mapper.Map<CompanyDto>(companyEntity);
+            return CreatedAtRoute("CompanyById", new { id = companyToReturn.Id }, companyToReturn);
+        }
+
         [HttpPost("collection")]
-        public IActionResult CreateCompanyCollection([FromBody] IEnumerable<CompanyForCreationDto> companyCollection)
+        [ServiceFilter(typeof(ValidationFilterAttribute))]
+        public async Task<IActionResult> CreateCompanyCollection([FromBody] IEnumerable<CompanyForCreationDto> companyCollection)
         {
             if (companyCollection == null)
             {
                 _logger.LogError("Company collection sent from client is null.");
                 return BadRequest("Company collection is null");
             }
+
+            if (!ModelState.IsValid)
+            {
+                _logger.LogError("Invalid model state for the CompanyForCreationDto object");
+                return UnprocessableEntity(ModelState);
+            }
+
             var companyEntities = _mapper.Map<IEnumerable<Company>>(companyCollection);
+
             foreach (var company in companyEntities)
             {
                 _repository.Company.CreateCompany(company);
             }
-            _repository.Save();
+
+            await _repository.SaveAsync();
             var companyCollectionToReturn = _mapper.Map<IEnumerable<CompanyDto>>(companyEntities);
             var ids = string.Join(",", companyCollectionToReturn.Select(c => c.Id));
             return CreatedAtRoute("CompanyCollection", new { ids }, companyCollectionToReturn);
+        }
+
+        [HttpDelete("{id}")]
+        [ServiceFilter(typeof(ValidateCompanyExistsAttribute))]
+        public async Task<IActionResult> DeleteCompany(Guid id)
+        {
+            var company = HttpContext.Items["company"] as Company;
+            _repository.Company.DeleteCompany(company);
+            await _repository.SaveAsync();
+            return NoContent();
+        }
+
+        [HttpPut("{id}")]
+        [ServiceFilter(typeof(ValidationFilterAttribute))]
+        [ServiceFilter(typeof(ValidateCompanyExistsAttribute))]
+        public async Task<IActionResult> UpdateCompany(Guid id, [FromBody] CompanyForUpdateDto
+        company)
+        {
+            var companyEntity = HttpContext.Items["company"] as Company;
+            _mapper.Map(company, companyEntity);
+            await _repository.SaveAsync();
+            return NoContent();
         }
     }
 }

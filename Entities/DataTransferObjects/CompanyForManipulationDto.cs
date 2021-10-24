@@ -1,15 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+using System.Text;
 
-namespace Entities.Models
-{
-    public class Company
+namespace Entities.DataTransferObjects
+{ 
+    public abstract class CompanyForManipulationDto
     {
-        [Column("CompanyId")]
-        public Guid Id { get; set; }
-
         [Required(ErrorMessage = "Company name is a required field.")]
         [MaxLength(60, ErrorMessage = "Maximum length for the Name is 60 characters.")]
         public string Name { get; set; }
@@ -20,6 +17,7 @@ namespace Entities.Models
 
         [MaxLength(60, ErrorMessage = "Maximum length for the Country is 60 characters")]
         public string Country { get; set; }
-        public ICollection<Employee> Employees { get; set; }
+
+        public IEnumerable<EmployeeForCreationDto> Employees { get; set; }
     }
 }

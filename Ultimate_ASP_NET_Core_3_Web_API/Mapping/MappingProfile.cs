@@ -21,6 +21,10 @@ namespace Ultimate_ASP_NET_Core_3_Web_API.Mapping
             CreateMap<CompanyForCreationDto, Company>();
 
             CreateMap<EmployeeForCreationDto, Employee>();
+
+            CreateMap<EmployeeForUpdateDto, Employee>().ReverseMap();
+
+            CreateMap<CompanyForUpdateDto, Company>();
         }
     }
 }
